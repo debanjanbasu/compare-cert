@@ -13,29 +13,32 @@ fi
 CERT_FNGPRNT_EXPIRY=$(echo | openssl s_client -servername "$1" -connect "$1" 2>/dev/null | openssl x509 -noout -fingerprint -enddate)
 
 # Check if the certificate has expired from CERT_FNGPRNT_EXPIRY
-# Calculate the time since expiry
-# Exit with error if certificate has expired
-# Use awk instead of "grep"
-if [[ "$(echo "${CERT_FNGPRNT_EXPIRY}" | awk '{print $4}')" == "expired" ]]; then
-	echo "Certificate has expired!"
-	# Display the time lapsed since expiry
-	echo "Time since expiry: $(echo "${CERT_FNGPRNT_EXPIRY}" | awk '{print $5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18}')"
+# Calculate the time since expiry in milli seconds
+# Exit with error if certificate has expired, and print the time since expiry
+# Use grep freebsd without the -P
+# Continue if the certificate has not expired
+if [[ $(echo "${CERT_FNGPRNT_EXPIRY}" | grep -oP 'notAfter=\K.*') < $(date +%s) ]]; then
+	echo "ERROR: Certificate has expired"
+	echo "Time since expiry: $(($(date +%s) - $(echo "${CERT_FNGPRNT_EXPIRY}" | grep -oP 'notAfter=\K.*') | bc)) seconds"
 	exit 1
 else
-	echo "Certificate has not expired! Continuing..."
+	echo "OK: Certificate has not expired"
 fi
+
+# Get the certificate fingerprint and expiry of the file and store it in FILE_FNGPRNT_EXPIRY
+FILE_FNGPRNT_EXPIRY=$(openssl x509 -noout -fingerprint -enddate -in "$2")
 
 # Compare the fingerprints and expiry
 # Exit with error if the fingerprints don't match
 # Exit with error if the expiry dates don't match
 # Exit with success if the fingerprints and expiry dates match
-if [[ "$(echo "${CERT_FNGPRNT_EXPIRY}" | awk '{print $2}')" != "$(openssl x509 -noout -fingerprint -enddate -in "$2" | awk '{print $2}')" ]]; then
-	echo "Fingerprints don't match!"
+if [[ "$(echo "${CERT_FNGPRNT_EXPIRY}" | grep -oP 'SHA1 Fingerprint=\K.*')" != "$(echo "${FILE_FNGPRNT_EXPIRY}" | grep -oP 'SHA1 Fingerprint=\K.*')" ]]; then
+	echo "ERROR: Fingerprints don't match!"
 	exit 1
-elif [[ "$(echo "${CERT_FNGPRNT_EXPIRY}" | awk '{print $4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18}')" != "$(openssl x509 -noout -fingerprint -enddate -in "$2" | awk '{print $4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18}')" ]]; then
-	echo "Expiry dates don't match!"
+elif [[ "$(echo "${CERT_FNGPRNT_EXPIRY}" | grep -oP 'notAfter=\K.*')" != "$(echo "${FILE_FNGPRNT_EXPIRY}" | grep -oP 'notAfter=\K.*')" ]]; then
+	echo "ERROR: Expiry dates don't match!"
 	exit 1
 else
-	echo "Fingerprints and expiry dates match!"
+	echo "OK: Fingerprints and expiry dates match!"
 	exit 0
 fi
