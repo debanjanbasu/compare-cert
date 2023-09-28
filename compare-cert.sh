@@ -59,16 +59,16 @@ FILE_FNGPRNT_EXPIRY=$(openssl x509 -noout -fingerprint -enddate -in "$2")
 # Exit with success if the fingerprints and expiry dates match
 # log the messages to syslog as well
 # use variables to store the message before outputting to stdout and syslog
-if [[ "${FILE_FNGPRNT_EXPIRY}" != "${CERT_FNGPRNT_EXPIRY}" ]]; then
-	MESSAGE="ERROR: Certificate fingerprints don't match!"
+if [[ "$(echo "${CERT_FNGPRNT_EXPIRY}" | grep -oP 'SHA1 Fingerprint=\K.*')" != "$(echo "${FILE_FNGPRNT_EXPIRY}" | grep -oP 'SHA1 Fingerprint=\K.*')" ]]; then
+	MESSAGE="ERROR: Fingerprints don't match!"
 	sys_logger "${MESSAGE}"
 	exit 1
-elif [[ "$(echo "${FILE_FNGPRNT_EXPIRY}" | grep -oP 'notAfter=\K.*')" != "$(echo "${CERT_FNGPRNT_EXPIRY}" | grep -oP 'notAfter=\K.*')" ]]; then
-	MESSAGE="ERROR: Certificate expiry dates don't match!"
+elif [[ "$(echo "${CERT_FNGPRNT_EXPIRY}" | grep -oP 'notAfter=\K.*')" != "$(echo "${FILE_FNGPRNT_EXPIRY}" | grep -oP 'notAfter=\K.*')" ]]; then
+	MESSAGE="ERROR: Expiry dates don't match!"
 	sys_logger "${MESSAGE}"
 	exit 1
 else
-	MESSAGE="OK: Certificate fingerprints and expiry dates match!"
+	MESSAGE="OK: Fingerprints and expiry dates match!"
 	sys_logger "${MESSAGE}"
 	exit 0
 fi
