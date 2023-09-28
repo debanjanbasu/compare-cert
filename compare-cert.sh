@@ -13,19 +13,21 @@ fi
 CERT_FNGPRNT_EXPIRY=$(echo | openssl s_client -servername "$1" -connect "$1" 2>/dev/null | openssl x509 -noout -fingerprint -enddate)
 
 # Check if the certificate has expired from CERT_FNGPRNT_EXPIRY
-# Calculate the time since expiry in milli seconds
+# Calculate the time since expiry in hh:mm:ss format
 # Exit with error if certificate has expired, and print the time since expiry
 # Continue if the certificate has not expired
 # log the messages to syslog as well
-if [[ "$(echo "${CERT_FNGPRNT_EXPIRY}" | grep -oP 'notAfter=\K.*')" < "$(date +%b\ %d\ %H:%M:%S\ %Y\ %Z)" ]]; then
-	echo "ERROR: Certificate has expired!" 2>&1
-	echo "ERROR: Certificate has expired!" | logger
-	echo "ERROR: Certificate expired $(($(date -d "$(echo "${CERT_FNGPRNT_EXPIRY}" | grep -oP 'notAfter=\K.*')" +%s) - $(date +%s))) seconds ago!" 2>&1
-	echo "ERROR: Certificate expired $(($(date -d "$(echo "${CERT_FNGPRNT_EXPIRY}" | grep -oP 'notAfter=\K.*')" +%s) - $(date +%s))) seconds ago!" | logger
+# use variables to store the message before outputting to stdout and syslog
+if [[ "$(echo "${CERT_FNGPRNT_EXPIRY}" | grep -oP 'notAfter=\K.*')" < "$(date -u +%Y%m%d%H%M%S)" ]]; then
+	TIME_SINCE_EXPIRY=$(TZ=UTC date -d @$(($(date -u +%s) - $(date -d "$(echo "${CERT_FNGPRNT_EXPIRY}" | grep -oP 'notAfter=\K.*')" +%s))) +%H:%M:%S)
+	MESSAGE="ERROR: Certificate has expired $TIME_SINCE_EXPIRY ago!"
+	echo "${MESSAGE}" 2>&1
+	echo "${MESSAGE}" | logger
 	exit 1
 else
-	echo "OK: Certificate has not expired!" 2>&1
-	echo "OK: Certificate has not expired!" | logger
+	MESSAGE="OK: Certificate has not expired!"
+	echo "${MESSAGE}" 2>&1
+	echo "${MESSAGE}" | logger
 fi
 
 # Get the certificate fingerprint and expiry of the file and store it in FILE_FNGPRNT_EXPIRY
@@ -36,16 +38,20 @@ FILE_FNGPRNT_EXPIRY=$(openssl x509 -noout -fingerprint -enddate -in "$2")
 # Exit with error if the expiry dates don't match
 # Exit with success if the fingerprints and expiry dates match
 # log the messages to syslog as well
-if [[ "$(echo "${CERT_FNGPRNT_EXPIRY}" | grep -oP 'SHA1 Fingerprint=\K.*')" != "$(echo "${FILE_FNGPRNT_EXPIRY}" | grep -oP 'SHA1 Fingerprint=\K.*')" ]]; then
-	echo "ERROR: Certificate fingerprints don't match!" 2>&1
-	echo "ERROR: Certificate fingerprints don't match!" | logger
+# use variables to store the message before outputting to stdout and syslog
+if [[ "${CERT_FNGPRNT_EXPIRY}" != "${FILE_FNGPRNT_EXPIRY}" ]]; then
+	MESSAGE="ERROR: Certificate fingerprints do not match!"
+	echo "${MESSAGE}" 2>&1
+	echo "${MESSAGE}" | logger
 	exit 1
 elif [[ "$(echo "${CERT_FNGPRNT_EXPIRY}" | grep -oP 'notAfter=\K.*')" != "$(echo "${FILE_FNGPRNT_EXPIRY}" | grep -oP 'notAfter=\K.*')" ]]; then
-	echo "ERROR: Certificate expiry dates don't match!" 2>&1
-	echo "ERROR: Certificate expiry dates don't match!" | logger
+	MESSAGE="ERROR: Certificate expiry dates do not match!"
+	echo "${MESSAGE}" 2>&1
+	echo "${MESSAGE}" | logger
 	exit 1
 else
-	echo "OK: Certificate fingerprints and expiry dates match!" 2>&1
-	echo "OK: Certificate fingerprints and expiry dates match!" | logger
+	MESSAGE="OK: Certificate fingerprints and expiry dates match!"
+	echo "${MESSAGE}" 2>&1
+	echo "${MESSAGE}" | logger
 	exit 0
 fi
