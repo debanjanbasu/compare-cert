@@ -2,8 +2,8 @@
 # Usage: ./compare-cert.sh <domain:port> <certificate file>
 # Example: ./compare-cert.sh google.com:443 google.com.crt
 
-# Create a function to log a message to both stdout and syslog
-# Use logger to log the message to syslog
+# Function to log a message to both stdout and syslog
+# Uses logger to log the message to syslog
 function sys_logger {
 	logger -s "${1}"
 }
